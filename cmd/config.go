@@ -51,12 +51,6 @@ func loadConfig() {
 		return
 	}
 
-	f, err := os.Open(path)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-
 	vars := map[string]*string{
 		"SKYLIGHT_EMAIL":              &email,
 		"SKYLIGHT_PASSWORD":           &password,
@@ -67,13 +61,24 @@ func loadConfig() {
 		"SKYLIGHT_DEVICE_FINGERPRINT": &deviceFingerprint,
 	}
 
-	values, _, err := parseConfigFile(f)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: error reading config file: %v\n", err)
+	if f, err := os.Open(path); err == nil {
+		defer f.Close()
+		values, _, err := parseConfigFile(f)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: error reading config file: %v\n", err)
+		}
+		for key, value := range values {
+			if ptr, exists := vars[key]; exists && *ptr == "" {
+				*ptr = value
+			}
+		}
 	}
-	for key, value := range values {
-		if ptr, exists := vars[key]; exists && *ptr == "" {
-			*ptr = value
+
+	for key, ptr := range vars {
+		if *ptr == "" {
+			if envVal := os.Getenv(key); envVal != "" {
+				*ptr = envVal
+			}
 		}
 	}
 }
